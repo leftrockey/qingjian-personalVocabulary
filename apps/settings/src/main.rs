@@ -2,6 +2,7 @@
 //!
 //! - `qingjian-settings`：开窗口，读写用户配置（`paths::config_path`）。
 //! - `--config <文件>`：换一份配置文件读写（试用时不碰真配置）。
+//! - `--user-dir <目录>`：换一个用户数据目录（学习数据、用户词都在这里），截图与试用时用。
 //! - `--png <目录>`：不开窗口，拷一份配置到目录里，按脚本点几下，每步存一张截图。
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
@@ -18,6 +19,7 @@ mod shortcut;
 mod stats;
 mod support;
 mod system;
+mod user_words;
 mod view;
 mod vocabulary;
 
@@ -63,16 +65,23 @@ fn init_logging() {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = paths::config_path();
+    let mut user_dir = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--config" => config = args.next().map(PathBuf::from),
+            "--user-dir" => {
+                user_dir = Some(PathBuf::from(args.next().ok_or("--user-dir 后面要给目录")?));
+            }
             "--png" => {
                 let directory = args.next().map(PathBuf::from).ok_or("--png 后面要给目录")?;
                 return offscreen::snapshot::run(config.as_deref(), &directory);
             }
             other => return Err(format!("不认识的参数：{other}").into()),
         }
+    }
+    if let Some(dir) = user_dir {
+        paths::set_user_dir(dir);
     }
     #[cfg(windows)]
     if !system::single_instance::acquire() {

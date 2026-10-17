@@ -174,7 +174,11 @@ fn broken_lines_are_skipped_instead_of_failing_the_load() {
     std::fs::write(dir.join(USER_NGRAM_FILE), "<s>\t我\t3\n坏行\n我\t想\t2\n").unwrap();
     std::fs::write(dir.join(USER_CHOICES_FILE), "ba\t吧\t2\nba\n").unwrap();
     std::fs::write(dir.join(USER_TYPOS_FILE), "gan\tguan\tx\ngan\tguan\t1\n").unwrap();
-    std::fs::write(dir.join(USER_WORDS_FILE), "账套\tzhang tao\t100\n只有词\n").unwrap();
+    std::fs::write(
+        dir.join(crate::user_words::FILE),
+        "账套\tzhang tao\t100\n只有词\n",
+    )
+    .unwrap();
     // 编码坏掉的字节也不能让整个文件读不了
     std::fs::write(dir.join(USER_ENGLISH_FILE), b"gist\t2\n\xff\xfe\t1\n").unwrap();
 
@@ -257,7 +261,7 @@ fn user_words_round_trip_through_tsv_and_form_a_dictionary() {
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("user.tsv");
     let _ = std::fs::remove_file(&path);
-    let _ = std::fs::remove_file(dir.join(USER_WORDS_FILE));
+    let _ = std::fs::remove_file(dir.join(crate::user_words::FILE));
 
     let mut learner = FrequencyLearner::from_path(&path).unwrap();
     assert!(learner.user_words().is_none());
@@ -275,6 +279,79 @@ fn user_words_round_trip_through_tsv_and_form_a_dictionary() {
     assert_eq!(reloaded.word_count(), 1);
     let hits = reloaded.user_words().unwrap().lookup(&["zhang"], true);
     assert_eq!(hits[0].text, "账套");
+}
+
+#[test]
+fn external_user_word_changes_are_merged_but_local_words_survive() {
+    let dir =
+        std::env::temp_dir().join(format!("qingjian-user-words-merge-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+    let words_path = dir.join(crate::user_words::FILE);
+    std::fs::write(&words_path, "旧词\tjiu ci\t100\n").unwrap();
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    learner.learn_word("本地词", &["ben".into(), "di".into(), "ci".into()]);
+    std::fs::write(
+        &words_path,
+        "旧词\tjiu ci\t100\n新词\txin ci\t100\n旧词\tjiu ci\t100\n改了\tgai le\t100\n",
+    )
+    .unwrap();
+    learner.refresh_user_words();
+
+    let words = learner.user_words().unwrap();
+    assert!(words.lookup(&["ben", "di"], true)[0].text == "本地词");
+    assert!(words.lookup(&["xin"], true)[0].text == "新词");
+    assert!(words.lookup(&["gai"], true)[0].text == "改了");
+    assert_eq!(learner.word_count(), 4);
+
+    learner.flush();
+    let reloaded = FrequencyLearner::from_path(&path).unwrap();
+    assert_eq!(reloaded.word_count(), 4);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_local_forget_is_not_resurrected_by_a_refresh() {
+    let dir =
+        std::env::temp_dir().join(format!("qingjian-user-words-forget-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+    let words_path = dir.join(crate::user_words::FILE);
+    std::fs::write(&words_path, "账套\tzhang tao\t100\n").unwrap();
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    assert!(learner.forget("账套").user_word);
+    // 设置程序改了别处、但没有删这个旧词：旧文件不能把它复活
+    std::fs::write(&words_path, "账套\tzhang tao\t100\n新词\txin ci\t100\n").unwrap();
+    learner.refresh_user_words();
+    let words = learner.user_words().unwrap();
+    assert!(words.lookup(&["zhang", "tao"], true).is_empty());
+    assert_eq!(words.lookup(&["xin"], true)[0].text, "新词");
+
+    learner.flush();
+    let saved = std::fs::read_to_string(&words_path).unwrap();
+    assert!(!saved.contains("账套"));
+    assert!(saved.contains("新词"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn external_changes_alone_do_not_mark_learning_dirty() {
+    let dir =
+        std::env::temp_dir().join(format!("qingjian-user-words-clean-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("user.tsv");
+    let words_path = dir.join(crate::user_words::FILE);
+    std::fs::write(&words_path, "旧词\tjiu ci\t100\n").unwrap();
+
+    let mut learner = FrequencyLearner::from_path(&path).unwrap();
+    assert!(!learner.has_unsaved());
+    std::fs::write(&words_path, "旧词\tjiu ci\t100\n新词\txin ci\t100\n").unwrap();
+    learner.refresh_user_words();
+    assert_eq!(learner.word_count(), 2);
+    assert!(!learner.has_unsaved());
+    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]

@@ -3,7 +3,7 @@ mod learner_impl;
 mod tables;
 
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use decay::{DEFAULT_HALF_LIFE_DAYS, Decay};
 use foldhash::HashMap;
@@ -16,12 +16,7 @@ use qingjian_core::{Candidate, Forgotten, Learner};
 use qingjian_dictionary::{Dictionary, WordList};
 
 use crate::error::LearningError;
-
-/// 用户词文件名，与词频文件放同一目录；格式与主词库 TSV 相同（`词\t拼音\t词频`）。
-const USER_WORDS_FILE: &str = "user-words.tsv";
-
-/// 用户词在小词库里的词频。排序主要靠 weight，这个值只在同 weight 时起作用。
-const USER_WORD_FREQUENCY: u32 = 100;
+use crate::user_words;
 
 /// 个人 n-gram 文件名，与词频文件同目录：`前词\t后词\t次数`，句首用 `<s>`。
 const USER_NGRAM_FILE: &str = "user-ngram.tsv";
@@ -79,6 +74,16 @@ pub struct FrequencyLearner {
     /// 用户词自上次保存后是否有变化。
     words_dirty: bool,
 
+    /// 上次读/写 `user-words.tsv` 时的文件戳；设置程序改过文件后据此重读。
+    words_synced: Option<user_words::Stamp>,
+
+    /// 上次读/写时的用户词内容；用于判断外部删掉了哪些词。
+    words_synced_entries: BTreeMap<String, String>,
+
+    /// 上次同步后本地新增 / 改拼音 / 删除过的词：刷新时不接受旧文件里的版本，
+    /// 以免把用户在候选窗里刚删掉的词复活，或把刚学到的词盖掉。
+    words_touched: BTreeSet<String>,
+
     /// 个人 n-gram：上屏词序列的转移计数（二元 + 三元）。
     ngram: UserNgram,
 
@@ -118,6 +123,9 @@ impl Default for FrequencyLearner {
             words: BTreeMap::default(),
             user_dictionary: None,
             words_dirty: false,
+            words_synced: None,
+            words_synced_entries: BTreeMap::default(),
+            words_touched: BTreeSet::default(),
             ngram: UserNgram::default(),
             ngram_dirty: false,
             choices: HashMap::default(),
@@ -209,6 +217,8 @@ impl FrequencyLearner {
             let skipped = learner.load_words(&source);
             note_skipped(&words_path, skipped);
         }
+        learner.words_synced = user_words::stamp(&words_path);
+        learner.words_synced_entries = learner.words.clone();
         let ngram_path = Self::ngram_path(&path);
         if let Some(source) = read_text_lossy(&ngram_path)? {
             let (ngram, skipped) = UserNgram::parse_lenient(&source);

@@ -162,6 +162,11 @@ impl Learner for MutedLearner {
         self.inner.forget_english(word)
     }
 
+    // 重读用户词表也是设置程序触发的管理操作，私密中照做
+    fn refresh_user_words(&mut self) {
+        self.inner.refresh_user_words();
+    }
+
     fn flush(&mut self) {
         self.inner.flush();
     }

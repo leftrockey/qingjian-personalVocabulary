@@ -91,6 +91,12 @@ CandidateLayout 保持 `set_cloud` 的首页末尾布局与本地首项；`set_c
   Engine 与主词库一起查）、个人英文词（`user-english.tsv`，回车原样上屏的英文词与选过的英文候选，与随包英文词表一起出候选且在前；
   原样上屏的串要像一个词才学：`MIN_ENGLISH_WORD_LETTERS` = 2 到 `MAX_ENGLISH_WORD_LETTERS` = 15 个字母、切不成完整拼音、
   也不能读成「拼音头 + 英文尾」——打不出来时整串上屏的失败拼音学进去会反过来堵住混输那条路，越打不出来学得越多）、
+  用户词的读写解析与设置程序共用 `user_words` 模块（`parse` / `write` / `stamp`，去 BOM、坏行跳过，词频统一写 `DEFAULT_FREQUENCY` = 100，
+  设置程序「我的词」也用它）；`refresh_user_words` 在文件戳变了时把外部改动合进内存：`words_touched` 里的词（本地新增 / 改拼音 / 删除过，
+  直到 flush 落盘成功）跳过外部版本，防止刚在候选窗删掉的词被旧文件复活；外部删掉的词按 `words_synced_entries` 删除；
+  外部改动本身不置 `words_dirty`。`Learner::flush` 写用户词前、`learn_word` 改表前都会先合并；
+  设置程序保存后会加一配置 `[user_words] revision`，三个平台的 `apply_config` 调 `Engine::refresh_user_words`（同时作废查询 / 纠错缓存），
+  借已有的一秒配置热加载生效；手工改文件时最迟下一次 60 秒 flush 生效。
   个人敲错表（`user-typos.tsv`，接受过的 (敲的, 要的) 音节对，词图敲错边与整段纠错的代价按它打折）与个人 n-gram（`user-ngram.tsv`，Core `sentence::UserNgram`，
   二元 + 三元在线计数，整句转换与词级排序里与静态模型插值；Tab 接受的云端整句按 `sentence::segment_text` 切词后也记；
   连着选出的两个词记够次数自动造词进用户词，一段拼音分几次选完的合成词记两次也造）。
@@ -214,7 +220,8 @@ P2C 自由生成实验：`--eval-text <集> --eval-generate data/models/hanzhang
 都还在读、文件不自动改写。
 
 
-`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` 分节，首次运行写模板，
+`Config`（TOML 配置文件，`[general]` / `[shortcut]` / `[fuzzy]` / `[dictionaries]` / `[apps]` / `[predict]` / `[user_words]` 分节，首次运行写模板，
+`[user_words] revision` 只是设置程序写完用户词表后加一的信号，输入法热加载配置时据此重读用户词，不是用户可见设置；
 `set_value` 用 toml_edit 原地改键保留注释；`[model] enabled` 本地整句模型开关，`LocalModelConfig`；
 中英模式两项：`[shortcut] switch_mode`（`SwitchKeys`：勾选 shift / control / ctrl+alt+space，可多选，老配置的单个字符串照读）与 `[general] english_mode`（内置英文模式总开关））；
 `extra_dictionaries` 列出 / 加载随包领域词库与用户 `dicts/`

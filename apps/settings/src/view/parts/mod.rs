@@ -4,3 +4,4 @@ pub mod actions;
 pub mod controls;
 pub mod lists;
 pub mod menus;
+pub mod rows;

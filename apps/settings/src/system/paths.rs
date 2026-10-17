@@ -2,9 +2,21 @@
 //! Windows 用 `qingjian_platform::dirs`；macOS 照 `apps/macos/src/app/paths.rs`，Linux 照 `apps/linux/server/src/paths.rs`。
 
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// `--user-dir` 指定的用户目录：截图与测试用，读写样例数据，不碰真实用户词。
+static USER_DIR_OVERRIDE: OnceLock<PathBuf> = OnceLock::new();
+
+/// 进程内换一个用户数据目录（只认第一次调用；`--png` 在 `Settings::load` 之前设）。
+pub fn set_user_dir(dir: PathBuf) {
+    let _ = USER_DIR_OVERRIDE.set(dir);
+}
 
 /// 用户数据目录：学习数据、统计、输入日志都在这里。
 pub fn user_dir() -> Option<PathBuf> {
+    if let Some(dir) = USER_DIR_OVERRIDE.get() {
+        return Some(dir.clone());
+    }
     if cfg!(windows) {
         qingjian_platform::dirs::user_dir()
     } else if cfg!(target_os = "macos") {

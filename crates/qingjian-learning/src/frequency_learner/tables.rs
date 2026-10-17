@@ -281,7 +281,7 @@ impl FrequencyLearner {
 
     /// 用户词文件与词频文件同目录。
     pub(super) fn words_path(frequency_path: &Path) -> PathBuf {
-        frequency_path.with_file_name(USER_WORDS_FILE)
+        frequency_path.with_file_name(user_words::FILE)
     }
 
     /// 个人 n-gram 文件与词频文件同目录。
@@ -306,19 +306,8 @@ impl FrequencyLearner {
 
     /// 从主词库同款 TSV 读用户词，返回跳过的坏行数。
     pub(super) fn load_words(&mut self, source: &str) -> usize {
-        let mut skipped = 0;
-        for line in data_lines(source) {
-            let mut fields = line.split('\t');
-            let (Some(text), Some(pinyin)) = (fields.next(), fields.next()) else {
-                skipped += 1;
-                continue;
-            };
-            if text.is_empty() || pinyin.trim().is_empty() {
-                skipped += 1;
-                continue;
-            }
-            self.words.insert(text.to_owned(), pinyin.trim().to_owned());
-        }
+        let (words, skipped) = user_words::parse(source);
+        self.words = words;
         self.rebuild_words();
         skipped
     }
@@ -332,7 +321,7 @@ impl FrequencyLearner {
         let tsv: String = self
             .words
             .iter()
-            .map(|(text, pinyin)| format!("{text}\t{pinyin}\t{USER_WORD_FREQUENCY}\n"))
+            .map(|(text, pinyin)| format!("{text}\t{pinyin}\t{}\n", user_words::DEFAULT_FREQUENCY))
             .collect();
         match Dictionary::parse(&tsv) {
             Ok(dictionary) => self.user_dictionary = Some(dictionary),
@@ -344,15 +333,52 @@ impl FrequencyLearner {
         self.words.len()
     }
 
-    pub(super) fn save_words_to(&mut self, path: &Path) -> Result<(), LearningError> {
-        write_atomic(path, |file| {
-            writeln!(file, "# 青简用户词：词\\t拼音\\t词频，与主词库同格式")?;
-            for (text, pinyin) in &self.words {
-                writeln!(file, "{text}\t{pinyin}\t{USER_WORD_FREQUENCY}")?;
+    /// 设置程序改过 `user-words.tsv` 时合并进来。本地还没落盘的改动（`words_touched`）优先，
+    /// 直到 [`Self::save_words_to`] 成功；这样候选窗里刚删掉的词不会被旧文件复活，刚学到的词也不会被盖掉。
+    pub(super) fn refresh_words(&mut self) {
+        let Some(path) = self.path.as_ref().map(|path| Self::words_path(path)) else {
+            return;
+        };
+        let stamp = user_words::stamp(&path);
+        if stamp.is_none() && self.words_synced.is_none() {
+            return;
+        }
+        if stamp == self.words_synced {
+            return;
+        }
+        let Ok((external, skipped)) = user_words::read(&path) else {
+            return;
+        };
+        note_skipped(&path, skipped);
+        let mut changed = false;
+        let touched = &self.words_touched;
+        for (text, pinyin) in &external {
+            if touched.contains(text) {
+                continue;
             }
-            Ok(())
-        })?;
+            if self.words.get(text) != Some(pinyin) {
+                self.words.insert(text.clone(), pinyin.clone());
+                changed = true;
+            }
+        }
+        for text in self.words_synced_entries.keys() {
+            if !external.contains_key(text) && !touched.contains(text) {
+                changed |= self.words.remove(text).is_some();
+            }
+        }
+        if changed {
+            self.rebuild_words();
+        }
+        self.words_synced = stamp;
+        self.words_synced_entries = external;
+    }
+
+    pub(super) fn save_words_to(&mut self, path: &Path) -> Result<(), LearningError> {
+        user_words::write(path, &self.words)?;
         self.words_dirty = false;
+        self.words_synced = user_words::stamp(path);
+        self.words_synced_entries = self.words.clone();
+        self.words_touched.clear();
         Ok(())
     }
 }

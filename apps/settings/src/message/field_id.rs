@@ -1,6 +1,6 @@
 //! 输入框的编号：编辑状态按它存在 `Settings::fields` 里。
 
-/// 输入框：云服务页的三个，短语编辑卡片里的两个，生词本页的搜索框。
+/// 输入框：云服务页的三个，短语编辑卡片里的两个，生词本页的搜索框，我的词页的搜索框与编辑卡片的两个。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum FieldId {
     BaseUrl,
@@ -10,6 +10,11 @@ pub enum FieldId {
     PhraseText,
     /// 生词本页的搜索框，不存进配置。
     VocabularySearch,
+    /// 我的词页的搜索框。
+    UserWordSearch,
+    /// 我的词编辑卡片里的词与拼音。
+    UserWordText,
+    UserWordPinyin,
 }
 
 impl FieldId {
@@ -25,6 +30,9 @@ impl FieldId {
             Self::PhraseCode => "code",
             Self::PhraseText => "text",
             Self::VocabularySearch => "vocabulary-search",
+            Self::UserWordSearch => "user-word-search",
+            Self::UserWordText => "user-word-text",
+            Self::UserWordPinyin => "user-word-pinyin",
         }
     }
 }

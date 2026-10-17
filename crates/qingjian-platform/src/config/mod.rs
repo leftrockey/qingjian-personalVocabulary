@@ -23,6 +23,7 @@ mod shortcut;
 mod status_bar;
 mod switch_key;
 mod update;
+mod user_words;
 
 use std::path::Path;
 
@@ -62,6 +63,7 @@ pub use shortcut::ShortcutConfig;
 pub use status_bar::StatusBarConfig;
 pub use switch_key::{SwitchKey, SwitchKeys};
 pub use update::{UpdateChannel, UpdateConfig};
+pub use user_words::UserWordsConfig;
 
 /// 用户配置文件（TOML）。所有平台同一份格式，缺省值全部在各分节的 `Default` 里。
 ///
@@ -102,6 +104,9 @@ pub struct Config {
 
     /// 检查更新。
     pub update: UpdateConfig,
+
+    /// 用户词表的内部同步标记（设置程序写完后加一，输入法热加载时重读）。
+    pub user_words: UserWordsConfig,
 }
 
 /// 模板的 `[apps]` 一节（Linux）：应用按 fcitx5 认到的名字（X11 是 WM_CLASS，Wayland 是 app_id）。

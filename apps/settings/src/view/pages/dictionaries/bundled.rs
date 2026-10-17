@@ -1,4 +1,4 @@
-//! 「词库」页：随包领域词库（两列勾选），导入的词库（开关、移除、导入）。基础词库一直启用，不列。
+//! 「随包与导入」视图：随包领域词库（两列勾选），导入的词库（开关、移除、导入）。基础词库一直启用，不列。
 
 use bamboo_slip::taffy::NodeId;
 use bamboo_slip::{RenderError, Ui, group, paragraph, section_title};
@@ -8,7 +8,7 @@ use crate::message::Message;
 use crate::view::Page;
 use crate::view::parts::lists::{domain_grid, entry_row, import_row, toggle_disabled};
 
-pub fn dictionaries(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
+pub fn bundled(ui: &mut Ui<Message>, page: &Page) -> Result<Vec<NodeId>, RenderError> {
     let theme = &page.theme;
     let library = &page.settings.library;
     let config = &page.settings.config.dictionaries;

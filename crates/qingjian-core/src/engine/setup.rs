@@ -571,6 +571,13 @@ impl Engine {
         self.learner.inner_mut()
     }
 
+    /// 设置程序改过 `user-words.tsv` 后重读；用户词参与查词，查询缓存与上一次查询摘要一起作废。
+    pub fn refresh_user_words(&mut self) {
+        self.learner_mut().refresh_user_words();
+        *self.correction_cache.borrow_mut() = None;
+        *self.last_query.borrow_mut() = None;
+    }
+
     pub fn learning_language(&self) -> Language {
         self.translator.language()
     }

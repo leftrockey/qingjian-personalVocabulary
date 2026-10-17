@@ -9,6 +9,22 @@ fn template_parses_to_defaults() {
 }
 
 #[test]
+fn user_words_revision_round_trips_and_writes_back_in_place() {
+    let config: Config = toml::from_str("[user_words]\nrevision = 7\n").unwrap();
+    assert_eq!(config.user_words.revision, 7);
+    assert_eq!(toml::from_str::<Config>("").unwrap().user_words.revision, 0);
+
+    let dir =
+        std::env::temp_dir().join(format!("qingjian-config-user-words-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config.toml");
+    Config::set_value(&path, "user_words", "revision", 8).unwrap();
+    let reloaded = Config::load(&path).unwrap();
+    assert_eq!(reloaded.user_words.revision, 8);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn partial_file_keeps_other_defaults() {
     let config: Config = toml::from_str("[predict]\nenabled = true\nlookback = 10\n").unwrap();
     assert!(config.predict.enabled);

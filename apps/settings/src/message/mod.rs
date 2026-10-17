@@ -1,9 +1,11 @@
 //! 控件产出的消息：多数是「把配置文件里的某一项改成某个值」，其余是界面自己的状态与按钮动作。
 
+mod dictionaries_view;
 mod field_id;
 mod popup;
 mod size_kind;
 
+pub use dictionaries_view::DictionariesView;
 pub use field_id::FieldId;
 pub use popup::Popup;
 pub use size_kind::SizeKind;
@@ -15,6 +17,7 @@ use crate::library::Kind;
 use crate::page_id::PageId;
 use crate::shortcut::Shortcut;
 use crate::system::action::Action;
+use crate::user_words::{Filter as WordFilter, Sort as WordSort};
 use crate::vocabulary::{Filter, Format, Sort, View};
 
 #[derive(Debug, Clone)]
@@ -92,6 +95,26 @@ pub enum Message {
     /// 清空生词本（第一下只是确认）。
     VocabularyClear,
     VocabularyExport(Format),
+    /// 词库页顶上的分段切换（`true` 是「我的词」）。
+    DictionariesView(bool),
+    UserWordsFilter(WordFilter),
+    UserWordsSort(WordSort),
+    /// 我的词翻到第几页（从 0 起）。
+    UserWordsPage(usize),
+    /// 打开词编辑卡片：`None` 新增，`Some(词)` 改它。
+    OpenUserWord(Option<String>),
+    SaveUserWord,
+    /// 卡片里的「删除」（第一下只是确认）。
+    DeleteUserWord,
+    CloseUserWord,
+    /// 在编辑卡片里点「采用基础读音」。
+    UserWordUseBaseReading,
+    /// 重新读文件（输入法在页面打开期间改过时）。
+    ReloadUserWords,
+    /// 选文件导入到我的词。
+    ImportUserWords,
+    /// 把当前列表导出成 TSV。
+    ExportUserWords,
     /// 点了 ⓘ：打开这个网址（官网文档的一段）。
     OpenDoc(String),
     Quit,

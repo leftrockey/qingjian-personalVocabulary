@@ -117,10 +117,13 @@ impl Learner for FrequencyLearner {
         if text.is_empty() || syllables.is_empty() {
             return;
         }
+        self.refresh_words();
         let pinyin = syllables.join(" ");
-        if self.words.insert(text.to_owned(), pinyin) == Some(syllables.join(" ")) {
+        if self.words.get(text) == Some(&pinyin) {
             return;
         }
+        self.words.insert(text.to_owned(), pinyin);
+        self.words_touched.insert(text.to_owned());
         self.words_dirty = true;
         self.rebuild_words();
         tracing::debug!(text, ?syllables, "记录用户词");
@@ -207,10 +210,15 @@ impl Learner for FrequencyLearner {
         self.set_half_life_days(days);
     }
 
+    fn refresh_user_words(&mut self) {
+        self.refresh_words();
+    }
+
     fn forget(&mut self, text: &str) -> Forgotten {
         let mut forgotten = Forgotten::default();
         if self.words.remove(text).is_some() {
             forgotten.user_word = true;
+            self.words_touched.insert(text.to_owned());
             self.words_dirty = true;
             self.rebuild_words();
         }
@@ -252,6 +260,8 @@ impl Learner for FrequencyLearner {
         let Some(path) = self.path.clone() else {
             return;
         };
+        // 设置程序可能刚改过 user-words.tsv；先合并，再写自己的学习数据
+        self.refresh_words();
         self.tick();
         if self.dirty {
             match self.save_to(&path) {

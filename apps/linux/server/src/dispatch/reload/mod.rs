@@ -91,6 +91,8 @@ impl Router {
         self.engine
             .set_shift_letter_compose(config.general.shift_letter.compose());
         self.engine.set_learning(config.general.learning);
+        // 设置程序写完 user-words.tsv 会改一次配置；借这次热加载重读用户词
+        self.engine.refresh_user_words();
         self.engine.set_chinese_first(config.general.chinese_first);
         self.engine
             .set_emoji_limit(usize::from(config.general.emoji.get()));

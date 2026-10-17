@@ -8,7 +8,7 @@ use bamboo_slip::{App, FamilyList, FamilyTable, Key, RenderError, TextPainter, U
 
 use super::{SIZES, Settings};
 use crate::library::{self, Library};
-use crate::message::{FieldId, Message, Popup, SizeKind};
+use crate::message::{DictionariesView, FieldId, Message, Popup, SizeKind};
 use crate::page_id::PageId;
 use crate::stats::Stats;
 use crate::system::action::{self, Action};
@@ -48,8 +48,13 @@ impl App for Settings {
                 self.page = page;
                 self.recording = None;
                 self.close_phrase();
+                self.close_user_word_editor();
                 if page == PageId::Dictionaries {
                     self.library = Library::scan();
+                    // 「我的词」视图还开着时重进这页（输入法可能又学了词），整本重读
+                    if self.dictionaries_view == DictionariesView::Personal {
+                        self.open_user_words();
+                    }
                 }
                 if page == PageId::Stats {
                     self.stats = Some(Stats::load(&self.config.general));
@@ -134,11 +139,39 @@ impl App for Settings {
             | Message::VocabularyRemove(_)
             | Message::VocabularyClear
             | Message::VocabularyExport(_) => self.vocabulary_message(message),
+            Message::DictionariesView(personal) => {
+                self.dictionaries_view = if personal {
+                    DictionariesView::Personal
+                } else {
+                    DictionariesView::Bundled
+                };
+                if personal {
+                    self.open_user_words();
+                } else {
+                    self.close_user_word_editor();
+                }
+            }
+            Message::UserWordsFilter(_)
+            | Message::UserWordsSort(_)
+            | Message::UserWordsPage(_)
+            | Message::OpenUserWord(_)
+            | Message::SaveUserWord
+            | Message::DeleteUserWord
+            | Message::CloseUserWord
+            | Message::UserWordUseBaseReading
+            | Message::ReloadUserWords
+            | Message::ImportUserWords
+            | Message::ExportUserWords => self.user_words_message(message),
             Message::Edit(id, edit) => {
                 if id == FieldId::VocabularySearch
                     && let Some(vocabulary) = self.vocabulary.as_mut()
                 {
                     vocabulary.page = 0;
+                }
+                if id == FieldId::UserWordSearch
+                    && let Some(book) = self.personal.as_mut()
+                {
+                    book.page = 0;
                 }
                 if let Some(copied) = self
                     .fields

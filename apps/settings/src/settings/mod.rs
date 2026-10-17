@@ -8,6 +8,7 @@ mod library;
 mod phrases;
 mod search;
 mod shortcuts;
+mod user_words;
 mod vocabulary;
 
 use std::cell::RefCell;
@@ -23,7 +24,7 @@ use crate::jobs::cloud_test::CloudTest;
 use crate::jobs::import::ImportJob;
 use crate::jobs::update_check::UpdateCheck;
 use crate::library::Library;
-use crate::message::{FieldId, Popup, SizeKind};
+use crate::message::{DictionariesView, FieldId, Popup, SizeKind};
 use crate::page_id::PageId;
 use crate::phrase_editor::PhraseEditor;
 use crate::search::Search;
@@ -31,6 +32,7 @@ use crate::shortcut::Shortcut;
 use crate::stats::Stats;
 use crate::system::action::Action;
 use crate::system::paths;
+use crate::user_words::{PersonalWords, WordEditor};
 use crate::view::previews::Previews;
 use crate::vocabulary::Vocabulary;
 
@@ -94,6 +96,15 @@ pub struct Settings {
 
     /// 生词本页的词，进页时读；学习语言关着为 `None`。
     pub vocabulary: Option<Vocabulary>,
+
+    /// 词库页看的是「随包与导入」还是「我的词」。
+    pub dictionaries_view: DictionariesView,
+
+    /// 我的词：进「我的词」视图时读。
+    pub personal: Option<PersonalWords>,
+
+    /// 开着的用户词编辑卡片。
+    pub user_word_editor: Option<WordEditor>,
 
     waker: Option<Waker>,
 
@@ -165,6 +176,9 @@ impl Settings {
             stats: None,
             stats_cloud: false,
             vocabulary: None,
+            dictionaries_view: DictionariesView::default(),
+            personal: None,
+            user_word_editor: None,
             waker: None,
             search: Search::default(),
             ctrl_space: system_ctrl_space(),

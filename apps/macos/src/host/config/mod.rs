@@ -38,6 +38,8 @@ impl Host {
         self.engine
             .set_shuangpin_raw_preedit(config.general.shuangpin_raw_preedit);
         self.engine.set_learning(config.general.learning);
+        // 设置程序写完 user-words.tsv 会改一次配置；借这次热加载重读用户词
+        self.engine.refresh_user_words();
         logging::set_level(config.general.log_level);
         self.translation_keys = config.shortcut.translation_keys();
         self.delete_keys = config.shortcut.delete_keys();

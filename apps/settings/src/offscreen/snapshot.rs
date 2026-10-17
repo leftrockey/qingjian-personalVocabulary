@@ -24,6 +24,18 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
             let _ = std::fs::remove_file(&copy);
         }
     }
+    // 用户数据指到输出目录下的临时位置，写一份样例用户词：截图不读也不动真实用户词
+    let user_dir = directory.join("user-data");
+    std::fs::create_dir_all(&user_dir)?;
+    std::fs::write(
+        user_dir.join("user-words.tsv"),
+        "# 青简用户词：词\t拼音\t词频，与主词库同格式\n\
+         青简\tqing jian\t100\n\
+         轻剑\tqing jian\t100\n\
+         账套\tzhang tao\t100\n\
+         核销\the xiao\t100\n",
+    )?;
+    crate::system::paths::set_user_dir(user_dir);
     let settings = Settings::load(copy)?;
     let themes: Vec<String> = settings
         .themes
@@ -82,6 +94,21 @@ pub fn run(config: Option<&Path>, directory: &Path) -> Result<(), Box<dyn std::e
     shot(&mut runner, "输入：点拼音下拉框")?;
     click(&mut runner, Key::ROOT.child("menu").child(1_usize))?;
     shot(&mut runner, "选小鹤双拼：多出「输入框显示按键」")?;
+
+    click(
+        &mut runner,
+        Key::ROOT.child("nav").child(PageId::Dictionaries),
+    )?;
+    click(
+        &mut runner,
+        Key::ROOT.child("dictionaries-view").child(1_usize),
+    )?;
+    shot(&mut runner, "词库：切到「我的词」")?;
+    click(&mut runner, Key::ROOT.child("user-word-add"))?;
+    click(&mut runner, Key::ROOT.child("user-word-pinyin"))?;
+    runner.handle(&Event::Text(TextInput::Insert("qingjian".to_owned())));
+    shot(&mut runner, "我的词：点新增，拼音连写自动切成音节")?;
+    click(&mut runner, Key::ROOT.child("user-word-cancel"))?;
 
     click(&mut runner, Key::ROOT.child("nav").child(PageId::Phrases))?;
     click(&mut runner, Key::ROOT.child("add-phrase"))?;

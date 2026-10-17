@@ -10,6 +10,7 @@ mod error;
 mod frequency_learner;
 mod input_log;
 mod usage_stats;
+pub mod user_words;
 mod vocabulary_book;
 
 pub use encounter_log::{ENCOUNTER_LOG_FILE, LoggedEncounter};

@@ -78,6 +78,7 @@ pub fn view(
     let key = ui.key("root");
     let menu_open = settings.menu.is_some();
     let dialog_open = settings.phrase.is_some();
+    let word_dialog_open = settings.user_word_editor.is_some();
     ui.interact(
         root,
         key,
@@ -87,6 +88,9 @@ pub fn view(
             }
             if dialog_open && press.key == KeyCode::Escape {
                 return Some(Message::ClosePhrase);
+            }
+            if word_dialog_open && press.key == KeyCode::Escape {
+                return Some(Message::CloseUserWord);
             }
             let close = press.key == KeyCode::Escape
                 || (press.modifiers.command && press.key == KeyCode::Character("w".to_owned()));
